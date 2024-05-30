@@ -3,7 +3,6 @@ import logging
 import time
 import pandas as pd
 
-from sklearn import set_config
 from sklearn.utils.validation import check_memory
 from sklearn.pipeline import _name_estimators
 from sklearn.utils.metadata_routing import _raise_for_params, process_routing
@@ -168,12 +167,12 @@ class BlockPipeline(Pipeline):
         The callback function that logs information in between each 
         intermediate step. If set to `"custom"`, `custom_log_callback` is 
         used. Defaults to None.
-    record_from : str, optional
+    record : str, optional
         Named step to record data. The name step would be accessible as an
         attribute with test-set transformed data. Note that spaces " " are 
         removed and dashes "-"  and replaced with underscores "_". Defaults to 
         None.
-
+    
     Examples
     --------
 
@@ -210,39 +209,28 @@ class BlockPipeline(Pipeline):
     Construct a pipeline with `record_named_step` set to "my_models"
     ```pycon hl_lines="31"
     >>> # sklearn
-    >>> from sklearn.pipeline import FeatureUnion
+    >>> from sklearn.datasets import make_regression
+    >>> from sklearn.preprocessing import StandardScaler
     >>> from sklearn.linear_model import LinearRegression
-    >>> from sklearn.decomposition import PCA
     >>> from sklearn.model_selection import GridSearchCV
-
-    >>> # sklego
-    >>> from sklego.meta import EstimatorTransformer
-    >>> from sklego.linear_model import ProbWeightRegression
-    >>> from sklego.preprocessing import ColumnSelector
-    >>> 
-    >>> from blocks import BlockPipeline
+    >>>
+    >>> from blocks import BlockPipeline, custom_log_callback
     >>>     
     >>> 
     >>> pipe = BlockPipeline([
-    ...     ("my_models", FeatureUnion([
-    ...         ("path1", BlockPipeline([
-    ...             ("select1", ColumnSelector([0, 1, 2, 3, 4])),
-    ...             ("pca", PCA(n_components=3)),
-    ...             ("linear", EstimatorTransformer(LinearRegression()))
-    ...         ])),
-    ...         ("path2", BlockPipeline([
-    ...             ("select2", ColumnSelector([5, 6, 7, 8, 9])),
-    ...             ("pca", PCA(n_components=2)),
-    ...             ("linear", EstimatorTransformer(LinearRegression()))
-    ...         ]))
-    ...     ])),
-    ...     ("prob_weight", ProbWeightRegression())
-    ... ], 
-    ...     record_from='my_models' # (1)
+    ...     ("scaler", StandardScaler()),
+    ...     ("regression", LinearRegression())
+    ... ],
+    ...     record='scaler',
+    ...     log_callback=custom_log_callback
     ... )
     >>> grid = GridSearchCV(estimator=pipe, param_grid={}, cv=3)
     >>> grid.fit(df, y)
     >>> predicted = grid.predict(df)
+    # [custom_log_callback:78] - [scaler][StandardScaler()] shape=(666, 10) time=0s
+    # [custom_log_callback:78] - [scaler][StandardScaler()] shape=(667, 10) time=0s
+    # [custom_log_callback:78] - [scaler][StandardScaler()] shape=(667, 10) time=0s
+    # [custom_log_callback:78] - [scaler][StandardScaler()] shape=(1000, 10) time=0s
     ```
 
     1.  "my_models" named step data will be recorded in a "my_models" attribute.
@@ -284,21 +272,14 @@ class BlockPipeline(Pipeline):
         verbose=False,
         *,
         log_callback=None,
-        record_from: str = None,
-        use_pandas: bool = False
+        record: str = None,
     ):
         self.log_callback = log_callback
-        self._record_from = record_from
-
-        self.name_record = (
-            record_from
-            if record_from is not None else None
-        )
-
-        if use_pandas:
-            set_config(transform_output="pandas")
+        self._record = record
+        self.name_record = record if record is not None else None
 
         super().__init__(steps=steps, memory=memory, verbose=verbose)
+
 
     @property
     def memory(self):
@@ -343,14 +324,14 @@ class BlockPipeline(Pipeline):
             self._log_callback = custom_log_callback
 
     @property
-    def record_from(self):
-        return self._record_from
+    def record(self):
+        return self._record
 
-    @record_from.setter
-    def record_from(self, step_args: Tuple[str, pd.DataFrame]):
+    @record.setter
+    def record(self, step_args: Tuple[str, pd.DataFrame]):
         name_step, step_result = step_args
         if name_step == self.name_record:
-            self._record_from = step_result
+            self._record = step_result
 
     @available_if(Pipeline._can_transform)
     def transform(self, X, **params):
@@ -361,7 +342,7 @@ class BlockPipeline(Pipeline):
         Xt = X
         for _, name, transform in self._iter():
             Xt = transform.transform(Xt, **routed_params[name].transform)
-            self.record_from = (name, Xt)
+            self.record = (name, Xt)
 
         return Xt
 
