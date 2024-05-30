@@ -100,7 +100,7 @@ Model with both record and log callbacks
 ... )
 ```
 
-Log callback
+Logs
 ```python
 >>> pipe.fit(df, y)
 # [custom_log_callback:78] - [scaler][StandardScaler()] shape=(1000, 10) time=0s
