@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "python-blocks"
+version = "0.1.0"
+description = "Extra blocks for scikit-learn features."
+authors = ["ActurialCapital"]
+license = "BSD 3-Clause License"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+scikit-learn = "^1.5.0"
+imbalanced-learn = "^0.12.3"
+pandas = "^2.2.2"
+numpy = "^1.26.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
