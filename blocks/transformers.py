@@ -11,6 +11,7 @@ from sklearn.preprocessing import FunctionTransformer
 
 from imblearn import FunctionSampler
 
+AnyArray = pd.Series | pd.DataFrame | np.ndarray
 
 def validate_select(transformer_dict: dict):
     """
@@ -88,11 +89,7 @@ class BaseSampler(ABC, FunctionSampler):
         super().__init__(func=self, **params)
 
     @abstractmethod
-    def __call__(
-        self,
-        X: pd.Series | pd.DataFrame | np.ndarray,
-        y: pd.Series | pd.DataFrame | np.ndarray = None
-    ) -> pd.Series | pd.DataFrame | np.ndarray:
+    def __call__(self, X: AnyArray, y: AnyArray = None) -> AnyArray:
         pass
 
 
@@ -149,9 +146,5 @@ class BaseTransformer(ABC, OneToOneFeatureMixin, FunctionTransformer):
         return self
 
     @abstractmethod
-    def __call__(
-        self,
-        X: pd.Series | pd.DataFrame | np.ndarray,
-        y: pd.Series | pd.DataFrame | np.ndarray = None
-    ) -> pd.Series | pd.DataFrame | np.ndarray:
+    def __call__(self, X: AnyArray, y: AnyArray = None) -> AnyArray:
         pass
