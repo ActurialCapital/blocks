@@ -1,4 +1,4 @@
-from typing import Any, Tuple
+from typing import Any, List, Tuple, Callable, Optional
 import logging
 import time
 import pandas as pd
@@ -267,12 +267,12 @@ class BlockPipeline(Pipeline):
 
     def __init__(
         self,
-        steps,
-        memory=None,
-        verbose=False,
+        steps: List[Tuple[str, Any]],
+        memory: Optional[str | Callable] = None,
+        verbose: Optional[bool] = False,
         *,
-        log_callback=None,
-        record: str = None,
+        log_callback: Optional[str | Callable] = None,
+        record: Optional[str] = None,
     ):
         self.log_callback = log_callback
         self._record = record
