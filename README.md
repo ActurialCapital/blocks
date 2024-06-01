@@ -128,6 +128,11 @@ Don't forget to give the project a star! Thanks again!
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
+we also recommend to have a look at 'project-template'.
+> 'project-template' is a template project for scikit-learn compatible extensions. It aids development of estimators that can be used in scikit-learn pipelines and (hyper)parameter search, while facilitating testing (including some API compliance), documentation, open source development, packaging, and continuous integration.
+
+Refer to the [Official Documentation](https://contrib.scikit-learn.org/project-template) to modify the template for your own scikit-learn contribution.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
