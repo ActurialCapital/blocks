@@ -1,7 +1,7 @@
 <a name="readme-top"></a>
 
 <!-- PROJECT LOGO -->
-# Blocks
+<p align="center"><img src="docs/logo.png" alt="logo" width="90%" height="90%"></p>
 
 <br>
 <!-- TABLE OF CONTENTS -->
@@ -25,14 +25,12 @@
   </ol>
 </details>
 
-
-
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
 ### Introduction
 
-`python-blocks` is a package designed to extend the functionality of `scikit-learn` by providing additional blocks for creating custom pipelines, easy-to-use base transformers, and useful decorators. This package aims to simplify the process of building and managing machine learning workflows in Python.
+`blocks` is a package designed to extend the functionality of `scikit-learn` by providing additional blocks for creating custom pipelines, easy-to-use base transformers, and useful decorators. This package aims to simplify the process of building and managing machine learning workflows in Python.
 
 The current version of the package offers:
 
@@ -55,10 +53,10 @@ The current version of the package offers:
 <!-- GETTING STARTED -->
 ## Installation
 
-To get started with `python-blocks`, you can clone the repository to your local machine. Ensure you have Git installed, then run the following command:
+To get started with `blocks`, you can clone the repository to your local machine. Ensure you have Git installed, then run the following command:
 
 ```sh
-$ git clone https://github.com/ActurialCapital/python-blocks.git
+$ git clone https://github.com/ActurialCapital/blocks.git
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -72,14 +70,15 @@ $ git clone https://github.com/ActurialCapital/python-blocks.git
 * Access particular named step data
 * Inherites from `imblearn` pipeline, which works with both transformers and samplers
 
-Dataset
+#### Dataset
 
 ```python
 >>> from sklearn.datasets import make_regression
 >>> X, y = make_regression(n_samples=1000, n_features=10, random_state=42)
 ```
 
-Model with both recorded and logged callbacks 
+#### Model with both recorded and logged callbacks 
+
 ```python
 >>> from sklearn.preprocessing import StandardScaler
 >>> from sklearn.linear_model import LinearRegression
@@ -95,14 +94,14 @@ Model with both recorded and logged callbacks
 ... )
 ```
 
-Logs
+#### Logs
 
 ```python
 >>> pipe.fit(df, y)
 # [custom_log_callback:78] - [scaler][StandardScaler()] shape=(1000, 10) time=0s
 ```
 
-Records
+#### Records
 
 ```python
 >>> predicted = pipe.transform(df)
@@ -128,8 +127,8 @@ Don't forget to give the project a star! Thanks again!
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-we also recommend to have a look at 'project-template'.
-> 'project-template' is a template project for scikit-learn compatible extensions. It aids development of estimators that can be used in scikit-learn pipelines and (hyper)parameter search, while facilitating testing (including some API compliance), documentation, open source development, packaging, and continuous integration.
+we also recommend to have a look at `project-template`.
+> `project-template` is a template project for `scikit-learn` compatible extensions. It aids development of estimators that can be used in `scikit-learn` pipelines and (hyper)parameter search, while facilitating testing (including some API compliance), documentation, open source development, packaging, and continuous integration.
 
 Refer to the [Official Documentation](https://contrib.scikit-learn.org/project-template) to modify the template for your own scikit-learn contribution.
 
