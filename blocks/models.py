@@ -3,7 +3,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.base import BaseEstimator
 
 from blocks.transformers import (
-    AnyArray,
     BaseTransformer,
     register_feature_names,
     output_pandas_dataframe
@@ -29,7 +28,7 @@ class VectorRegressor(BaseTransformer):
     an imputer transformer in a pipeline or drop samples with missing values. 
     See [Imputation](https://scikit-learn.org/stable/modules/impute.html) 
     Finally, You can find a list of all estimators that handle `NaN` values at 
-    the following [page](https://scikit-learn.org/stable/modules/impute.html#estimators-that-handle-nan-values).
+    the following [page](https://scikit-learn.org/stable/modules/impute.html).
 
     Parameters
     ----------
@@ -46,15 +45,15 @@ class VectorRegressor(BaseTransformer):
         super().__init__()
 
     @register_feature_names
-    def fit(self, X, y, **kwargs) -> "BaseTransformer":
+    def fit(self, X: pd.DataFrame, y: pd.DataFrame, **kwargs) -> "BaseTransformer":
         """
         Fit the underlying estimator on training data `X` and `y`.
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : pd.DataFrame
             Training data.
-        y : array-like of shape (n_samples,)
+        y : pd.DataFrame
             Target values.
         **kwargs : dict
             Additional keyword arguments passed to the `fit` method of the 
@@ -76,7 +75,7 @@ class VectorRegressor(BaseTransformer):
         return self
 
     @output_pandas_dataframe
-    def __call__(self, X: AnyArray, y: AnyArray = None) -> AnyArray:
+    def __call__(self, X: pd.DataFrame, y: pd.DataFrame = None) -> pd.DataFrame:
         predictions = []
         for label, model in self.models.items():
             pred = model.predict(X)
