@@ -33,7 +33,7 @@ if __name__ == "__main__":
     )
     
 
-    self = VectorRegressor(LinearRegression)
-    self.fit(X_train, y_train)
-    pred = self.transform(y_test)
+    model = VectorRegressor(LinearRegression)
+    model.fit(X_train, y_train)
+    pred = model.transform(y_test)
     
