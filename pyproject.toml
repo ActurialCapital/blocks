@@ -5,6 +5,8 @@ description = "Extra blocks for scikit-learn features."
 authors = ["ActurialCapital"]
 license = "BSD 3-Clause License"
 readme = "README.md"
+repository = "https://github.com/ActurialCapital/blocks"
+packages = [ {include = "blocks"} ]
 
 [tool.poetry.dependencies]
 python = "^3.11"
