@@ -381,7 +381,7 @@ def make_block_pipeline(*steps, **kwargs) -> BlockPipeline:
         The callback function that logs information in between each 
         intermediate step. If set to `"custom"`, `custom_log_callback` is 
         used. Defaults to None.
-        * `record_from` : str
+        * `record` : str
         Records named step data passed between each step of the pipeline at
         transform. The recorded data would become an attribute with named step 
         as name. If "all" is passed, it records all named step data. Default to 
@@ -391,7 +391,7 @@ def make_block_pipeline(*steps, **kwargs) -> BlockPipeline:
     -------
     BlockPipeline
         Instance with given steps, `memory`, `verbose`, `log_callback` and 
-        `record_from`.
+        `record`.
 
     Examples
     --------
@@ -489,7 +489,7 @@ def make_block_pipeline(*steps, **kwargs) -> BlockPipeline:
     memory = kwargs.pop("memory", None)
     verbose = kwargs.pop("verbose", False)
     log_callback = kwargs.pop("log_callback", None)
-    record_from = kwargs.pop("record_from", None)
+    record = kwargs.pop("record", None)
 
     if kwargs:
         raise TypeError(
@@ -501,5 +501,5 @@ def make_block_pipeline(*steps, **kwargs) -> BlockPipeline:
         memory=memory,
         verbose=verbose,
         log_callback=log_callback,
-        record_from=record_from,
+        record_from=record,
     )

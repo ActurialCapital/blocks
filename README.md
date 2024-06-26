@@ -3,6 +3,13 @@
 <!-- PROJECT LOGO -->
 <p align="center"><img src="docs/logo.png" alt="logo" width="90%" height="90%"></p>
 
+| Overview | |
+|---|---|
+| **Open Source** |  [![BSD 3-clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/ActurialCapital/blocks/blob/main/LICENSE) |
+| **Code** |  [![!pypi](https://img.shields.io/pypi/v/python-blocks?color=orange)](https://pypi.org/project/python-blocks/) [![!python-versions](https://img.shields.io/pypi/pyversions/python-blocks)](https://www.python.org/) |
+| **Downloads** | ![PyPI - Downloads](https://img.shields.io/pypi/dw/python-blocks) ![PyPI - Downloads](https://img.shields.io/pypi/dm/python-blocks) [![Downloads](https://static.pepy.tech/personalized-badge/python-blocks?period=total&units=international_system&left_color=grey&right_color=blue&left_text=cumulative%20(pypi))](https://pepy.tech/project/python-blocks) |
+
+
 <br>
 <!-- TABLE OF CONTENTS -->
 <details>
