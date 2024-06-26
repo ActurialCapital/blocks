@@ -501,5 +501,5 @@ def make_block_pipeline(*steps, **kwargs) -> BlockPipeline:
         memory=memory,
         verbose=verbose,
         log_callback=log_callback,
-        record_from=record,
+        record=record,
     )
