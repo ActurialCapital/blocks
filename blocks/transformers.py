@@ -123,6 +123,28 @@ class BaseTransformer(ABC, OneToOneFeatureMixin, FunctionTransformer):
             if key is None:
                 raise ValueError(f"Missing {kw_args} to compute {selected}.")
 
+    @register_feature_names
+    def fit(self, X, y=None, **kwargs) -> "BaseTransformer":
+        """
+        Fit the underlying estimator on training data `X` and `y`.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data.
+        y : array-like of shape (n_samples,), optional
+            Target values. Defaults to None.
+        **kwargs : dict
+            Additional keyword arguments passed to the `fit` method of the 
+            underlying estimator.
+
+        Returns
+        -------
+        self : BaseTransformer
+            The fitted transformer.
+        """
+        return self
+    
     @abstractmethod
     def __call__(self, X: AnyArray, y: AnyArray = None) -> AnyArray:
         pass
