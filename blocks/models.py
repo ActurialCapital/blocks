@@ -79,7 +79,6 @@ class VectorRegressor(BaseTransformer):
 
         return self
 
-    @output_pandas_dataframe
     def __call__(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
         predictions = []
         for label, model in self.models.items():
