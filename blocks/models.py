@@ -64,21 +64,27 @@ class VectorRegressor(BaseTransformer):
         self : BaseTransformer
             The fitted transformer.
         """
+        y = y.dropna()
+        if y.empty:
+            raise ValueError(
+                'Variable `y` should not be empty after dropping NaNs.'
+            )
         self.models = {}
         for label in X.columns:
-            Xi = X[label].dropna()
-            yi = y.dropna()
-            Xi, yi = Xi.align(yi, join='inner', axis=0)
-            fitted_model = self.model_cls(**self.kwargs).fit(yi, Xi)
-            self.models[label] = fitted_model
+            Xi = X[label].dropna() 
+            if not Xi.empty:
+                Xi, yi = Xi.align(y, join='inner', axis=0)
+                fitted_model = self.model_cls(**self.kwargs).fit(yi, Xi)
+                self.models[label] = fitted_model
 
         return self
 
     @output_pandas_dataframe
-    def __call__(self, X: pd.DataFrame, y: pd.DataFrame = None) -> pd.DataFrame:
+    def __call__(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
         predictions = []
         for label, model in self.models.items():
             pred = model.predict(X)
             predictions.append(pd.DataFrame(pred, columns=[label], index=X.index))
 
         return pd.concat(predictions, axis=1)
+
