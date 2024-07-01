@@ -30,10 +30,7 @@ if __name__ == "__main__":
     )
 
     pipe.fit(df, y)
-    # [custom_log_callback:78] - [scaler][StandardScaler()] shape=(666, 10) time=0s
-    # [custom_log_callback:78] - [scaler][StandardScaler()] shape=(667, 10) time=0s
-    # [custom_log_callback:78] - [scaler][StandardScaler()] shape=(667, 10) time=0s
-    # [custom_log_callback:78] - [scaler][StandardScaler()] shape=(1000, 10) time=0s
+    # [custom_log_callback:84] - [scaler][StandardScaler()] shape=(1000, 10) time=0s
     
     predicted = pipe.transform(df)
     
@@ -41,4 +38,4 @@ if __name__ == "__main__":
     'scaler'
    
     pipe.record.dtype
-    # array([[ ...
+    # dtype('float64')

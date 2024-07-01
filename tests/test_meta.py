@@ -5,7 +5,7 @@ from sklearn.linear_model import LinearRegression
 
 from pandas.testing import assert_frame_equal
 
-from blocks import VectorRegressor
+import blocks as bk
 
 
 length = 50
@@ -23,16 +23,17 @@ factors = [f'factor_{n}' for n in range(1, n_paths + 1)]
 
 X_train = pd.DataFrame(
     np.random.normal(size=(length, n_paths)),
-    columns=assets,
-    index=index
-)
-X_train.iloc[2:10, 0:3] = pd.NA
-
-y_train = pd.DataFrame(
-    np.random.normal(size=(length, n_paths)),
     columns=factors,
     index=index
 )
+
+y_train = pd.DataFrame(
+    np.random.normal(size=(length, n_paths)),
+    columns=assets,
+    index=index
+)
+y_train_ = y_train.copy()
+y_train_.iloc[2:10, 0:3] = pd.NA
 
 y_test = pd.DataFrame(
     np.random.normal(size=(length, n_paths)),
@@ -43,13 +44,13 @@ y_test = pd.DataFrame(
 
 def test_vector_regression():
     # Model based
-    pred = VectorRegressor(LinearRegression).fit(X_train, y_train).transform(y_test)
+    pred = bk.VectorRegressor(LinearRegression).fit(X_train, y_train_).transform(y_test)
     
     # Iterating through assets (vector by vector)
     predictions = []
     for asset in assets:
-        Xi = X_train[asset].dropna()
-        yi = y_train.dropna()
+        Xi = y_train_[asset].dropna()
+        yi = X_train.dropna()
         Xi, yi = Xi.align(yi, join='inner', axis=0)
         arr = LinearRegression().fit(yi, Xi).predict(y_test)
         predictions.append(pd.DataFrame(arr, columns=[asset], index=y_test.index))
@@ -58,3 +59,16 @@ def test_vector_regression():
     # Assert
     assert_frame_equal(pred, output)
         
+def test_estimator_transformer():
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    pred = model.predict(y_test)
+    pred = pd.DataFrame(pred, index=y_test.index, columns=y_test.columns)
+
+    model = bk.EstimatorTransformer(LinearRegression())
+    model.fit(X_train, y_train)
+    output = model.transform(y_test)
+    
+    # Assert
+    assert_frame_equal(pred, output)
+    
