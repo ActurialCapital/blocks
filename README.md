@@ -1,7 +1,7 @@
 <a name="readme-top"></a>
 
 <!-- PROJECT LOGO -->
-<p align="center"><img src="docs/logo.png" alt="logo" width="90%" height="90%"></p>
+<p align="center"><img src="docs/logo.png" alt="logo" width="100%" height="100%"></p>
 
 | Overview | |
 |---|---|
@@ -61,11 +61,33 @@ The current version of the package offers:
 <!-- GETTING STARTED -->
 ## Installation
 
-To get started with `blocks`, you can clone the repository to your local machine. Ensure you have Git installed, then run the following command:
+The easiest way to install `blocks` is via `PyPI`:
 
 ```sh
-$ git clone https://github.com/ActurialCapital/blocks.git
+pip install python-blocks
 ```
+
+## Testing
+
+To run the test suite after installation, follow these steps from the source directory. First, install `pytest` version 8.2.2:
+
+```
+pip install pytest==8.2.2
+```
+
+Then run `pytest` as follow:
+
+```
+pytest tests
+```
+
+Alternatively, if you are using `poetry`, execute:
+
+```
+poetry run pytest
+```
+
+For more information, visit our [Codecov](https://app.codecov.io/gh/ActurialCapital/blocks) page.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
