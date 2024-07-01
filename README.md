@@ -7,6 +7,7 @@
 |---|---|
 | **Open Source** |  [![BSD 3-clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/ActurialCapital/blocks/blob/main/LICENSE) |
 | **Code** |  [![!pypi](https://img.shields.io/pypi/v/python-blocks?color=orange)](https://pypi.org/project/python-blocks/) [![!python-versions](https://img.shields.io/pypi/pyversions/python-blocks)](https://www.python.org/) |
+| **CI/CD** | [![!codecov](https://img.shields.io/codecov/c/github/ActurialCapital/blocks?label=codecov&logo=codecov)](https://codecov.io/gh/ActurialCapital/blocks) |
 | **Downloads** | ![PyPI - Downloads](https://img.shields.io/pypi/dw/python-blocks) ![PyPI - Downloads](https://img.shields.io/pypi/dm/python-blocks) [![Downloads](https://static.pepy.tech/personalized-badge/python-blocks?period=total&units=international_system&left_color=grey&right_color=blue&left_text=cumulative%20(pypi))](https://pepy.tech/project/python-blocks) |
 
 
