@@ -179,6 +179,8 @@ class VectorRegressor(BaseTransformer):
 
 
 class Factor(TransformerMixin, MetaEstimatorMixin, BaseEstimator):
+    """Work in progress"""
+    
     def __init__(self, template: BaseFactor):
         self.template = template
 

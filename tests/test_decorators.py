@@ -5,8 +5,13 @@ import numpy as np
 import pandas as pd
 from pandas.testing import assert_index_equal
 
-from blocks.decorators import validate_select, register_feature_names, output_pandas_dataframe
-from blocks.base import BaseTransformer
+from sklearn.linear_model import LinearRegression
+
+from blocks.decorators import ( 
+    validate_select, 
+    register_feature_names, 
+    output_pandas_dataframe
+)
 
 length = 50
 n_paths = 10
@@ -34,9 +39,13 @@ df2 = pd.DataFrame(
     columns=assets,
     index=index,
 )
+df3 = pd.DataFrame(
+    np.random.normal(size=(length, n_paths)),
+    columns=assets,
+    index=index,
+)
 
-
-class MyClass(BaseTransformer):
+class MyClass:
     CHECK_SELECT = {'a': 'foo', 'b': 'bar'}
 
     @validate_select(CHECK_SELECT)
@@ -44,12 +53,15 @@ class MyClass(BaseTransformer):
         self.select = select
 
     @register_feature_names
-    def fit(self, X, y=None):
+    def fit(self, X, y):
+        self.model = LinearRegression().fit(X, y)
         return self
 
     @output_pandas_dataframe
-    def __call__(cls, X, y=None):
-        return X
+    def predict(self, X, y=None):
+        return self.model.predict(X)
+
+   
 
 
 def test_validate_select():
@@ -57,12 +69,20 @@ def test_validate_select():
     MyClass('a')
     MyClass('b')
     with pytest.raises(TypeError):
+        MyClass()
+    with pytest.raises(TypeError):
         MyClass('hello')
+    with pytest.raises(TypeError):
         MyClass(123)
+    with pytest.raises(TypeError):
         MyClass(3.14)
+    with pytest.raises(TypeError):
         MyClass(True)
+    with pytest.raises(TypeError):
         MyClass(['a'])
+    with pytest.raises(TypeError):
         MyClass({'a': 1})
+    with pytest.raises(TypeError):
         MyClass(None)
 
 
@@ -76,8 +96,23 @@ def test_additional_valid_options():
 
 
 def test_register_feature_names():
-    transformer = MyClass('a').fit(df1)
+    transformer = MyClass('a').fit(df1, df2)
     assert_index_equal(transformer.columns_, df1.columns)
 
-    transformer = MyClass('a').fit(df2)
+    transformer = MyClass('a').fit(df2, df1)
     assert_index_equal(transformer.columns_, df2.columns)
+
+def test_output_pandas_dataframe():
+    arr = df3.to_numpy()
+    assert isinstance(arr, np.ndarray)
+    
+    output = LinearRegression().fit(df1, df2).predict(df3)
+    assert isinstance(output, np.ndarray)
+    
+    myclass = MyClass('a').fit(df1, df2)
+    pred = myclass.predict(df3)
+    assert isinstance(pred, pd.DataFrame)
+    assert_index_equal(myclass.columns_, df1.columns)
+    
+    
+    

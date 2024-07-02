@@ -1,3 +1,5 @@
+import pytest 
+
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
@@ -44,7 +46,9 @@ y_test = pd.DataFrame(
 
 def test_vector_regression():
     # Model based
-    pred = bk.VectorRegressor(LinearRegression).fit(X_train, y_train_).transform(y_test)
+    model = bk.VectorRegressor(LinearRegression)
+    model.fit(X_train, y_train_)
+    pred = model.transform(y_test)
     
     # Iterating through assets (vector by vector)
     predictions = []
@@ -58,6 +62,12 @@ def test_vector_regression():
     
     # Assert
     assert_frame_equal(pred, output)
+    
+    # Test All NaNs
+    X_train_nans = pd.DataFrame(index=X_train.index, columns=X_train.columns)
+    with pytest.raises(ValueError):
+        model.fit(X_train_nans, y_train_)
+    
         
 def test_estimator_transformer():
     model = LinearRegression()
@@ -71,4 +81,20 @@ def test_estimator_transformer():
     
     # Assert
     assert_frame_equal(pred, output)
+    
+    # Test check_X_y
+    model = bk.EstimatorTransformer(LinearRegression(), check_input=True)
+    new_y_train = np.select([y_train > 0, y_train <= 0], [True, False], default=True)
+    model.fit(X_train, new_y_train)
+    output = model.transform(y_test)
+    assert isinstance(output, pd.DataFrame)
+    
+    new_y_train = np.select([y_train > 0, y_train <= 0], ['foo', 'bar'], default='foo')
+    with pytest.raises(ValueError):
+        model.fit(X_train, new_y_train)
+    
+    
+def test_factor():
+    pass
+    
     

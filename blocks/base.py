@@ -117,4 +117,6 @@ class BaseFactor:
 
 
 class BaseDataLoader:
-    pass
+    @abstractmethod
+    def get(self, label: str) -> pd.DataFrame:
+        pass
