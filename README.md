@@ -26,6 +26,7 @@
         </ul>
     </li>
     <li><a href="#installation">Installation</a></li>
+    <li><a href="#testing">Testing</a></li>
     <li><a href="#getting-started">Getting Started</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
@@ -65,6 +66,12 @@ The easiest way to install `blocks` is via `PyPI`:
 
 ```sh
 pip install python-blocks
+```
+
+Or via `poetry`:
+
+```sh
+poetry add python-blocks
 ```
 
 ## Testing
