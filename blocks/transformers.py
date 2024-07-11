@@ -1,5 +1,16 @@
-import pandas as pd
+
+import warnings
+
+from itertools import combinations
+from scipy.stats import mode
+
 import numpy as np
+import pandas as pd
+import pandas_ta as ta
+
+from sklearn.utils.validation import check_is_fitted, check_array
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 
 from blocks.base import BaseTransformer
 from blocks.decorators import validate_select
@@ -536,3 +547,620 @@ class Signal(BaseTransformer):
 
         """
         return signals.diff().abs().ge(threshold).astype(int) * np.sign(signals)
+
+
+class MovingAverageCrossover(BaseTransformer):
+    def __init__(self, windows=list, ma='sma'):
+        self.windows = windows
+        self.ma = ma.upper()
+        super().__init__()
+
+        # Validate window list
+        if len(windows) != len(set(windows)):
+            raise ValueError("All values in windows must be unique.")
+
+        if any(not isinstance(i, int) or i <= 0 for i in windows):
+            raise ValueError(
+                "All values in windows must be positive integers.")
+
+    @staticmethod
+    def _compute_moving_average(X: pd.DataFrame, window: int, avg_type: str) -> pd.DataFrame:
+        if avg_type == 'SMA':
+            return X.rolling(window=window, min_periods=1).mean()
+
+        elif avg_type == 'EMA':
+            return X.ewm(span=window, adjust=False).mean()
+
+        else:
+            raise ValueError(
+                "Unsupported moving average type. Use 'SMA' or 'EMA'."
+            )
+
+    def __call__(cls, X: pd.DataFrame) -> pd.DataFrame:
+        # Ensure windows are sorted to maintain short < long
+        sorted_windows = sorted(cls.windows)
+
+        results = []
+        for short, long in combinations(sorted_windows, 2):
+            sw = cls._compute_moving_average(X, short, cls.ma)
+            lw = cls._compute_moving_average(X, long, cls.ma)
+            labels = [f'{cls.ma}({col}, {short}, {long})' for col in X.columns]
+
+            # Signals: Faster MA > Slower MA
+            sig = np.where(sw > lw, 1.0, 0.0)
+            result = pd.DataFrame(sig, index=X.index, columns=labels).diff()
+            results.append(result.fillna(0))
+
+        return pd.concat(results, axis=1)
+
+
+class RSTradeEntry(BaseTransformer):
+    def __init__(self, window=14, thresh: tuple = None):
+        self.window = window
+        self.thresh = thresh or (30, 70)
+        super().__init__()
+
+    def __call__(cls, X: pd.Series) -> pd.DataFrame:
+        # Calculate RSI using pandas_ta
+        rsi = ta.rsi(X, length=cls.window)
+
+        # Initialize signals array
+        signals = np.zeros_like(rsi)
+        # Generate signals based on RSI thresholds
+        signals[(rsi.shift(1) < cls.thresh[1]) & (rsi >= cls.thresh[1])] = -1
+        signals[(rsi.shift(1) > cls.thresh[0]) & (rsi <= cls.thresh[0])] = 1
+
+        # Adjust signals to ensure no consecutive same non-zero signals
+        last_signal = 0
+        for i in range(len(signals)):
+            if signals[i] != 0:
+                if signals[i] == last_signal:
+                    signals[i] = 0
+                else:
+                    last_signal = signals[i]
+
+        return pd.Series(signals, index=rsi.index, name=f'RSI({cls.window})')
+
+
+class RSInterval(BaseTransformer):
+    def __init__(self, window=14, thresh: tuple = None):
+        self.window = window
+        self.thresh = thresh or (30, 70)
+        super().__init__()
+
+    def __call__(cls, X: pd.Series) -> pd.DataFrame:
+        # Calculate RSI using pandas_ta
+        rsi = ta.rsi(X, length=cls.window)
+
+        # Initialize signals array
+        signals = np.zeros_like(rsi)
+
+        # Generate signals based on RSI thresholds
+        overbought = False
+        oversold = False
+
+        for i in range(1, len(rsi)):
+            if oversold:
+                if rsi[i] >= 50:
+                    oversold = False
+                signals[i] = 1
+            elif overbought:
+                if rsi[i] <= 50:
+                    overbought = False
+                signals[i] = -1
+            else:
+                if (
+                    rsi[i-1] < cls.thresh[0] and
+                    rsi[i] >= cls.thresh[0] and
+                    rsi[i] <= 50
+                ):
+                    oversold = True
+                    signals[i] = 1
+                elif (
+                    rsi[i-1] > cls.thresh[1] and
+                    rsi[i] <= cls.thresh[1] and
+                    rsi[i] >= 50
+                ):
+                    overbought = True
+                    signals[i] = -1
+
+        return pd.Series(signals, index=rsi.index, name=f'RSI({cls.window})')
+
+
+class FilterCollinear(BaseTransformer):
+    def __init__(
+        self,
+        target: str = None,
+        subset: str | list = None,
+        threshold: float = 5.0
+    ):
+        self.target = target
+        self.subset = subset
+        self.threshold = threshold
+        super().__init__()
+
+    def _compute_variance_inflation_factor(self, X: pd.DataFrame) -> pd.Series:
+        # initialize dictionaries
+        results = {}  # , tolerance_dict = {}, {}
+        exogs = (
+            X.columns
+            if self.target is None
+            else [col for col in X.columns if col != self.target]
+        )
+        # form input data for each exogenous variable
+        for exog in exogs:
+            endog = [i for i in exogs if i != exog]
+            Xi, y = X[endog], X[exog]
+
+            # extract r-squared from the fit
+            r_squared = LinearRegression().fit(Xi, y).score(Xi, y)
+            # calculate VIF and tolerance
+            tol = 1 - r_squared
+            results[exog] = 1 / tol
+            # tolerance_dict[exog] = tol
+
+        return pd.Series(results).sort_values(ascending=False)
+
+    def _iter_filter(self, X, vif):
+        while (vif > self.threshold).any() == True:
+            removed = vif.drop(vif.index[0])  # Sorted
+            X = X[removed.index]
+            vif = self._compute_variance_inflation_factor(X)
+
+        return X
+
+    def __call__(cls, X: pd.DataFrame) -> pd.DataFrame:
+        if cls.subset is not None:
+            # Ensure subset is a list
+            if isinstance(cls.subset, str):
+                subset = [cls.subset]
+            else:
+                subset = cls.subset
+            # Interpolate only the subset of columns
+            Xi = X.copy()
+            vif = cls._compute_variance_inflation_factor(X[subset])
+            Xi = cls._iter_filter(X[subset], vif)
+        else:
+            # Interpolate all columns
+            vif = cls._compute_variance_inflation_factor(X)
+            Xi = cls._iter_filter(X, vif)
+
+        return Xi
+
+
+class LinearImputer(BaseTransformer):
+    def __init__(self, subset: str | list = None, **kwargs):
+        self.subset = subset
+        self.kwargs = kwargs
+        super().__init__()
+
+    def __call__(cls, X: pd.DataFrame) -> pd.DataFrame:
+        # Check if subset is provided
+        if cls.subset is not None:
+            # Ensure subset is a list
+            if isinstance(cls.subset, str):
+                subset = [cls.subset]
+            else:
+                subset = cls.subset
+
+            # Interpolate only the subset of columns
+            Xi = X.copy()
+            Xi[subset] = X[subset].interpolate(**cls.kwargs)
+        else:
+            # Interpolate all columns
+            Xi = X.interpolate(**cls.kwargs)
+
+        # Return the DataFrame with interpolated values
+        return Xi
+
+
+class ForestImputer(BaseTransformer):
+    def __init__(
+        self,
+        subset: str | list = None,
+        max_iter=10,
+        decreasing=False,
+        missing_values=np.nan,
+        copy=True,
+        n_estimators=100,
+        criterion=('squared_error', 'gini'),
+        max_depth=None,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        min_weight_fraction_leaf=0.0,
+        max_features='sqrt',
+        max_leaf_nodes=None,
+        min_impurity_decrease=0.0,
+        bootstrap=True,
+        oob_score=False,
+        n_jobs=-1,
+        random_state=None,
+        verbose=0,
+        warm_start=False,
+        class_weight=None
+    ):
+        self.subset = subset
+        self.max_iter = max_iter
+        self.decreasing = decreasing
+        self.missing_values = missing_values
+        self.copy = copy
+        self.n_estimators = n_estimators
+        self.criterion = criterion
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
+        self.min_weight_fraction_leaf = min_weight_fraction_leaf
+        self.max_features = max_features
+        self.max_leaf_nodes = max_leaf_nodes
+        self.min_impurity_decrease = min_impurity_decrease
+        self.bootstrap = bootstrap
+        self.oob_score = oob_score
+        self.n_jobs = n_jobs
+        self.random_state = random_state
+        self.verbose = verbose
+        self.warm_start = warm_start
+        self.class_weight = class_weight
+        super().__init__()
+
+    @staticmethod
+    def _get_mask(X, value_to_mask):
+        """Compute the boolean mask X == missing_values."""
+        if value_to_mask == "NaN" or np.isnan(value_to_mask):
+            return np.isnan(X)
+        else:
+            return X == value_to_mask
+
+    def _miss_forest(self, Ximp, mask):
+        # Count missing per column
+        col_missing_count = mask.sum(axis=0)
+
+        # Get col and row indices for missing
+        missing_rows, missing_cols = np.where(mask)
+
+        if self.num_vars_ is not None:
+            # Only keep indices for numerical vars
+            keep_idx_num = np.in1d(missing_cols, self.num_vars_)
+            missing_num_rows = missing_rows[keep_idx_num]
+            missing_num_cols = missing_cols[keep_idx_num]
+
+            # Make initial guess for missing values
+            col_means = np.full(Ximp.shape[1], fill_value=np.nan)
+            col_means[self.num_vars_] = self.statistics_.get('col_means')
+            Ximp[missing_num_rows, missing_num_cols] = np.take(
+                col_means, missing_num_cols)
+
+            # Reg criterion
+            reg_criterion = self.criterion if type(self.criterion) == str \
+                else self.criterion[0]
+
+            # Instantiate regression model
+            rf_regressor = RandomForestRegressor(
+                n_estimators=self.n_estimators,
+                criterion=reg_criterion,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                min_weight_fraction_leaf=self.min_weight_fraction_leaf,
+                max_features=self.max_features,
+                max_leaf_nodes=self.max_leaf_nodes,
+                min_impurity_decrease=self.min_impurity_decrease,
+                bootstrap=self.bootstrap,
+                oob_score=self.oob_score,
+                n_jobs=self.n_jobs,
+                random_state=self.random_state,
+                verbose=self.verbose,
+                warm_start=self.warm_start)
+
+        # If needed, repeat for categorical variables
+        if self.cat_vars_ is not None:
+            # Calculate total number of missing categorical values (used later)
+            n_catmissing = np.sum(mask[:, self.cat_vars_])
+
+            # Only keep indices for categorical vars
+            keep_idx_cat = np.in1d(missing_cols, self.cat_vars_)
+            missing_cat_rows = missing_rows[keep_idx_cat]
+            missing_cat_cols = missing_cols[keep_idx_cat]
+
+            # Make initial guess for missing values
+            col_modes = np.full(Ximp.shape[1], fill_value=np.nan)
+            col_modes[self.cat_vars_] = self.statistics_.get('col_modes')
+            Ximp[missing_cat_rows, missing_cat_cols] = np.take(
+                col_modes, missing_cat_cols)
+
+            # Classfication criterion
+            clf_criterion = self.criterion if type(self.criterion) == str \
+                else self.criterion[1]
+
+            # Instantiate classification model
+            rf_classifier = RandomForestClassifier(
+                n_estimators=self.n_estimators,
+                criterion=clf_criterion,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                min_weight_fraction_leaf=self.min_weight_fraction_leaf,
+                max_features=self.max_features,
+                max_leaf_nodes=self.max_leaf_nodes,
+                min_impurity_decrease=self.min_impurity_decrease,
+                bootstrap=self.bootstrap,
+                oob_score=self.oob_score,
+                n_jobs=self.n_jobs,
+                random_state=self.random_state,
+                verbose=self.verbose,
+                warm_start=self.warm_start,
+                class_weight=self.class_weight)
+
+        # 2. misscount_idx: sorted indices of cols in X based on missing count
+        misscount_idx = np.argsort(col_missing_count)
+        # Reverse order if decreasing is set to True
+        if self.decreasing is True:
+            misscount_idx = misscount_idx[::-1]
+
+        # 3. While new_gammas < old_gammas & self.iter_count_ < max_iter loop:
+        self.iter_count_ = 0
+        gamma_new = 0
+        gamma_old = np.inf
+        gamma_newcat = 0
+        gamma_oldcat = np.inf
+        col_index = np.arange(Ximp.shape[1])
+
+        while (
+                gamma_new < gamma_old or gamma_newcat < gamma_oldcat) and \
+                self.iter_count_ < self.max_iter:
+
+            # 4. store previously imputed matrix
+            Ximp_old = np.copy(Ximp)
+            if self.iter_count_ != 0:
+                gamma_old = gamma_new
+                gamma_oldcat = gamma_newcat
+            # 5. loop
+            for s in misscount_idx:
+                # Column indices other than the one being imputed
+                s_prime = np.delete(col_index, s)
+
+                # Get indices of rows where 's' is observed and missing
+                obs_rows = np.where(~mask[:, s])[0]
+                mis_rows = np.where(mask[:, s])[0]
+
+                # If no missing, then skip
+                if len(mis_rows) == 0:
+                    continue
+
+                # Get observed values of 's'
+                yobs = Ximp[obs_rows, s]
+
+                # Get 'X' for both observed and missing 's' column
+                xobs = Ximp[np.ix_(obs_rows, s_prime)]
+                xmis = Ximp[np.ix_(mis_rows, s_prime)]
+
+                # 6. Fit a random forest over observed and predict the missing
+                if self.cat_vars_ is not None and s in self.cat_vars_:
+                    rf_classifier.fit(X=xobs, y=yobs)
+                    # 7. predict ymis(s) using xmis(x)
+                    ymis = rf_classifier.predict(xmis)
+                    # 8. update imputed matrix using predicted matrix ymis(s)
+                    Ximp[mis_rows, s] = ymis
+                else:
+                    rf_regressor.fit(X=xobs, y=yobs)
+                    # 7. predict ymis(s) using xmis(x)
+                    ymis = rf_regressor.predict(xmis)
+                    # 8. update imputed matrix using predicted matrix ymis(s)
+                    Ximp[mis_rows, s] = ymis
+
+            # 9. Update gamma (stopping criterion)
+            if self.cat_vars_ is not None:
+                gamma_newcat = np.sum(
+                    (Ximp[:, self.cat_vars_] != Ximp_old[:, self.cat_vars_])
+                ) / n_catmissing
+            if self.num_vars_ is not None:
+                gamma_new = np.sum(
+                    (Ximp[:, self.num_vars_] - Ximp_old[:, self.num_vars_]) ** 2
+                ) / np.sum((Ximp[:, self.num_vars_]) ** 2)
+
+            print("Iteration:", self.iter_count_)
+            self.iter_count_ += 1
+
+        return Ximp_old
+
+    def _apply_fit(self, X, y=None, cat_vars=None):
+        if isinstance(X, pd.DataFrame):
+            X = X.to_numpy()
+
+        # Check data integrity and calling arguments
+        force_all_finite = (
+            False
+            if self.missing_values in ["NaN", np.nan]
+            else True
+        )
+        X = check_array(
+            X,
+            accept_sparse=False,
+            dtype=np.float64,
+            force_all_finite=force_all_finite,
+            copy=self.copy
+        )
+
+        # Check for +/- inf
+        if np.any(np.isinf(X)):
+            raise ValueError("+/- inf values are not supported.")
+
+        # Check if any column has all missing
+        mask = self._get_mask(X, self.missing_values)
+        if np.any(mask.sum(axis=0) >= (X.shape[0])):
+            raise ValueError("One or more columns have all rows missing.")
+
+        # Check cat_vars type and convert if necessary
+        if cat_vars is not None:
+            if type(cat_vars) == int:
+                cat_vars = [cat_vars]
+            elif type(cat_vars) == list or type(cat_vars) == np.ndarray:
+                if np.array(cat_vars).dtype != int:
+                    raise ValueError(
+                        "cat_vars needs to be either an int or an array of ints."
+                    )
+            else:
+                raise ValueError(
+                    "cat_vars needs to be either an int or an array of ints."
+                )
+
+        # Identify numerical variables
+        num_vars = np.setdiff1d(np.arange(X.shape[1]), cat_vars)
+        num_vars = num_vars if len(num_vars) > 0 else None
+
+        # First replace missing values with NaN if it is something else
+        if self.missing_values not in ['NaN', np.nan]:
+            X[np.where(X == self.missing_values)] = np.nan
+
+        # Now, make initial guess for missing values
+        col_means = (
+            np.nanmean(X[:, num_vars], axis=0)
+            if num_vars is not None
+            else None
+        )
+        col_modes = (
+            mode(X[:, cat_vars], axis=0, nan_policy='omit')[0]
+            if cat_vars is not None
+            else None
+        )
+
+        self.cat_vars_ = cat_vars
+        self.num_vars_ = num_vars
+        self.statistics_ = {"col_means": col_means, "col_modes": col_modes}
+
+        return self
+
+    def fit(self, X, y=None, cat_vars=None):
+        """
+        Fit the imputer on X.
+
+        Parameters
+        ----------
+        X : {array-like}, shape (n_samples, n_features)
+            Input data, where ``n_samples`` is the number of samples and
+            ``n_features`` is the number of features.
+
+        cat_vars : int or array of ints, optional (default = None)
+            An int or an array containing column indices of categorical
+            variable(s)/feature(s) present in the dataset X.
+            ``None`` if there are no categorical variables in the dataset.
+
+        Returns
+        -------
+        self : object
+            Returns self.
+        """
+        # Check if subset is provided
+        if self.subset is not None:
+            # Ensure subset is a list
+            if isinstance(self.subset, str):
+                subset = [self.subset]
+            else:
+                subset = self.subset
+
+            self._apply_fit(X[subset], y, cat_vars)
+
+        else:
+            self._apply_fit(X, y, cat_vars)
+
+        return self
+
+    def _apply_transform(self, X):
+        if isinstance(X, pd.DataFrame):
+            X = X.to_numpy()
+
+        # Check data integrity
+        force_all_finite = (
+            False
+            if self.missing_values in ["NaN", np.nan]
+            else True
+        )
+        X = check_array(
+            X,
+            accept_sparse=False,
+            dtype=np.float64,
+            force_all_finite=force_all_finite,
+            copy=self.copy
+        )
+
+        # Check for +/- inf
+        if np.any(np.isinf(X)):
+            raise ValueError("+/- inf values are not supported.")
+
+        # Check if any column has all missing
+        mask = self._get_mask(X, self.missing_values)
+        if np.any(mask.sum(axis=0) >= (X.shape[0])):
+            raise ValueError("One or more columns have all rows missing.")
+
+        # Get fitted X col count and ensure correct dimension
+        n_cols_fit_X = (
+            (0 if self.num_vars_ is None else len(self.num_vars_)) +
+            (0 if self.cat_vars_ is None else len(self.cat_vars_))
+        )
+        _, n_cols_X = X.shape
+
+        if n_cols_X != n_cols_fit_X:
+            raise ValueError(
+                "Incompatible dimension between the fitted dataset and the one "
+                "to be transformed.")
+
+        # Check if anything is actually missing and if not return original X
+        mask = self._get_mask(X, self.missing_values)
+        if not mask.sum() > 0:
+            warnings.warn(
+                "No missing value located; returning original dataset."
+            )
+            return X
+
+        # Call cls function to impute missing
+        X = self._miss_forest(X, mask)
+
+        # Return imputed dataset
+        return X
+
+    def __call__(cls, X):
+        """Impute all missing values in X.
+
+        Parameters
+        ----------
+        X : {array-like}, shape = [n_samples, n_features]
+            The input data to complete.
+
+        Returns
+        -------
+        X : {array-like}, shape = [n_samples, n_features]
+            The imputed dataset.
+        """
+        # Confirm whether fit() has been called
+        check_is_fitted(cls, ["cat_vars_", "num_vars_", "statistics_"])
+
+        # Check if subset is provided
+        if cls.subset is not None:
+            # Ensure subset is a list
+            if isinstance(cls.subset, str):
+                subset = [cls.subset]
+            else:
+                subset = cls.subset
+
+            Xi = X.copy()
+            Xi[subset] = cls._apply_transform(X[subset])
+
+        else:
+            Xi = cls._apply_transform(X)
+
+        return Xi
+
+    def fit_transform(self, X, y=None, **fit_params):
+        """Fit MissForest and impute all missing values in X.
+
+        Parameters
+        ----------
+        X : {array-like}, shape (n_samples, n_features)
+            Input data, where ``n_samples`` is the number of samples and
+            ``n_features`` is the number of features.
+
+        Returns
+        -------
+        X : {array-like}, shape (n_samples, n_features)
+            Returns imputed dataset.
+        """
+        return self.fit(X, **fit_params).transform(X)

@@ -222,3 +222,5 @@ class Filter(BaseSampler):
         mask_data = operation(aligned, cls.thresh)
         # Apply mask
         return X, y.where(mask_data, np.nan)
+
+
